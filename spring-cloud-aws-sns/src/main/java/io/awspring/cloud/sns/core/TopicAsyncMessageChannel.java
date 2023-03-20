@@ -15,34 +15,31 @@
  */
 package io.awspring.cloud.sns.core;
 
+import java.util.concurrent.CompletableFuture;
 import org.springframework.messaging.Message;
-import org.springframework.messaging.support.AbstractMessageChannel;
 import software.amazon.awssdk.arns.Arn;
-import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.SnsAsyncClient;
 
 /**
- * Implementation of {@link AbstractMessageChannel} which is used for converting and sending messages via
- * {@link SnsClient} to SNS in a synchronous fashion..
+ * Implementation of {@link AbstractAsyncMessageChannel} which is used for converting and sending messages via
+ * {@link SnsAsyncClient} to SNS in an asynchronous fashion.
  *
- * @author Agim Emruli
- * @author Alain Sahli
- * @author Gyozo Papp
- * @since 1.0
+ * @author Elisabetta Semboloni
  */
-public final class TopicMessageChannel extends AbstractMessageChannel {
+public final class TopicAsyncMessageChannel extends AbstractAsyncMessageChannel {
 
-	private final SnsClient snsClient;
+	private final SnsAsyncClient snsAsyncClient;
 
 	private final Arn topicArn;
 
-	public TopicMessageChannel(SnsClient snsClient, Arn topicArn) {
-		this.snsClient = snsClient;
+	public TopicAsyncMessageChannel(SnsAsyncClient snsAsyncClient, Arn topicArn) {
+		this.snsAsyncClient = snsAsyncClient;
 		this.topicArn = topicArn;
 	}
 
-	@Override
-	protected boolean sendInternal(Message<?> message, long timeout) {
-		this.snsClient.publish(TopicMessageChannelUtils.getBuilder(message, topicArn).build());
-		return true;
+	protected CompletableFuture<Boolean> sendInternalAsync(Message<?> message) {
+		return this.snsAsyncClient.publish(TopicMessageChannelUtils.getBuilder(message, topicArn).build()).thenApply(ignored -> true);
 	}
+
+
 }

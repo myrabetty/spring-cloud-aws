@@ -22,6 +22,7 @@ import io.awspring.cloud.autoconfigure.core.AwsClientBuilderConfigurer;
 import io.awspring.cloud.autoconfigure.core.AwsClientCustomizer;
 import io.awspring.cloud.autoconfigure.core.CredentialsProviderAutoConfiguration;
 import io.awspring.cloud.autoconfigure.core.RegionProviderAutoConfiguration;
+import io.awspring.cloud.sns.core.SnsAsyncTemplate;
 import io.awspring.cloud.sns.core.SnsOperations;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import io.awspring.cloud.sns.core.TopicArnResolver;
@@ -42,6 +43,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import software.amazon.awssdk.services.sns.SnsAsyncClient;
+import software.amazon.awssdk.services.sns.SnsAsyncClientBuilder;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.SnsClientBuilder;
 
@@ -56,7 +59,7 @@ import software.amazon.awssdk.services.sns.SnsClientBuilder;
  * @author Matej Nedic
  */
 @AutoConfiguration
-@ConditionalOnClass({ SnsClient.class, SnsTemplate.class })
+@ConditionalOnClass({ SnsAsyncClient.class, SnsClient.class, SnsTemplate.class, SnsAsyncTemplate.class })
 @EnableConfigurationProperties({ SnsProperties.class })
 @AutoConfigureAfter({ CredentialsProviderAutoConfiguration.class, RegionProviderAutoConfiguration.class })
 @ConditionalOnProperty(name = "spring.cloud.aws.sns.enabled", havingValue = "true", matchIfMissing = true)
@@ -73,12 +76,32 @@ public class SnsAutoConfiguration {
 	@ConditionalOnMissingBean(SnsOperations.class)
 	@Bean
 	public SnsTemplate snsTemplate(SnsClient snsClient, Optional<ObjectMapper> objectMapper,
-			Optional<TopicArnResolver> topicArnResolver) {
+		Optional<TopicArnResolver> topicArnResolver) {
 		MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
 		converter.setSerializedPayloadClass(String.class);
 		objectMapper.ifPresent(converter::setObjectMapper);
 		return topicArnResolver.map(it -> new SnsTemplate(snsClient, it, converter))
-				.orElseGet(() -> new SnsTemplate(snsClient, converter));
+			.orElseGet(() -> new SnsTemplate(snsClient, converter));
+	}
+
+	@ConditionalOnMissingBean
+	@Bean
+	public SnsAsyncClient snsAsyncClient(SnsProperties properties,
+			AwsClientBuilderConfigurer awsClientBuilderConfigurer,
+			ObjectProvider<AwsClientCustomizer<SnsAsyncClientBuilder>> configurer) {
+		return awsClientBuilderConfigurer.configure(SnsAsyncClient.builder(), properties, configurer.getIfAvailable())
+				.build();
+	}
+
+	@ConditionalOnMissingBean(SnsOperations.class)
+	@Bean
+	public SnsAsyncTemplate snsAsyncTemplate(SnsAsyncClient snsAsyncClient, Optional<ObjectMapper> objectMapper,
+		Optional<TopicArnResolver> topicArnResolver) {
+		MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
+		converter.setSerializedPayloadClass(String.class);
+		objectMapper.ifPresent(converter::setObjectMapper);
+		return topicArnResolver.map(it -> new SnsAsyncTemplate(snsAsyncClient, it, converter))
+			.orElseGet(() -> new SnsAsyncTemplate(snsAsyncClient, converter));
 	}
 
 	@ConditionalOnMissingBean(SnsSmsOperations.class)
